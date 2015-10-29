@@ -20,6 +20,7 @@ import android.os.Parcelable;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.app.FragmentStatePagerAdapter;
 import android.support.v4.view.PagerAdapter;
+import android.util.Log;
 import android.util.SparseArray;
 import android.view.View;
 import android.view.ViewGroup;
@@ -37,6 +38,9 @@ public class LoopPagerAdapterWrapper extends PagerAdapter {
     private SparseArray<ToDestroy> mToDestroy = new SparseArray<ToDestroy>();
 
     private boolean mBoundaryCaching;
+
+    Object firstItem;
+    Object lastItem;
 
     void setBoundaryCaching(boolean flag) {
         mBoundaryCaching = flag;
@@ -91,34 +95,38 @@ public class LoopPagerAdapterWrapper extends PagerAdapter {
 
     @Override
     public Object instantiateItem(ViewGroup container, int position) {
-        int realPosition = (mAdapter instanceof FragmentPagerAdapter || mAdapter instanceof FragmentStatePagerAdapter)
-                ? position
-                : toRealPosition(position);
+        int realPosition = toRealPosition(position);
 
-        if (mBoundaryCaching) {
-            ToDestroy toDestroy = mToDestroy.get(position);
-            if (toDestroy != null) {
-                mToDestroy.remove(position);
-                return toDestroy.object;
-            }
+        Object object = mAdapter.instantiateItem(container, realPosition);
+
+        if (position == getRealFirstPosition()) {
+            firstItem = object;
         }
-        return mAdapter.instantiateItem(container, realPosition);
+
+        if (position == getRealFirstPosition() - 1) {
+            lastItem = object;
+        }
+
+        if (position == getCount() - 1) {
+            return firstItem;
+        }
+
+        if (position == getCount() - 2) {
+            return lastItem;
+        }
+
+        return object;
     }
 
     @Override
     public void destroyItem(ViewGroup container, int position, Object object) {
-        int realFirst = getRealFirstPosition();
-        int realLast = getRealLastPosition();
-        int realPosition = (mAdapter instanceof FragmentPagerAdapter || mAdapter instanceof FragmentStatePagerAdapter)
-                ? position
-                : toRealPosition(position);
+        int realPosition = toRealPosition(position);
 
-        if (mBoundaryCaching && (position == realFirst || position == realLast)) {
-            mToDestroy.put(position, new ToDestroy(container, realPosition,
-                    object));
-        } else {
-            mAdapter.destroyItem(container, realPosition, object);
+        if (object == firstItem || object == lastItem) {
+            return;
         }
+
+        mAdapter.destroyItem(container, realPosition, object);
     }
 
     /*
